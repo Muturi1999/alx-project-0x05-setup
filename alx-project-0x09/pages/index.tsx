@@ -4,25 +4,36 @@ import { useState } from "react";
 
 const Home: React.FC = () => {
   const [prompt, setPrompt] = useState<string>("");
-  const [imageUrl, setImageUrl] = useState<string>(""); // must be used
+  const [imageUrl, setImageUrl] = useState<string>("");
   const [generatedImages, setGeneratedImages] = useState<ImageProps[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
   const handleGenerateImage = async () => {
+    if (!prompt.trim()) return;
     setIsLoading(true);
 
-    // Simulated image generation
-    const fakeImageUrl = `https://via.placeholder.com/300x200.png?text=${encodeURIComponent(prompt)}`;
+    try {
+      const resp = await fetch("/api/generate-image", {
+        method: "POST",
+        body: JSON.stringify({ prompt }),
+        headers: { "Content-Type": "application/json" },
+      });
 
-    // Store in state
-    setImageUrl(fakeImageUrl);
-    setGeneratedImages((prev) => [
-      ...prev,
-      { imageUrl: fakeImageUrl, prompt },
-    ]);
+      if (!resp.ok) throw new Error("Request failed");
 
-    setIsLoading(false);
-    setPrompt("");
+      const data = await resp.json();
+      const newUrl = data.message as string;
+
+      // update local states
+      setImageUrl(newUrl);
+      setGeneratedImages((prev) => [...prev, { imageUrl: newUrl, prompt }]);
+    } catch (err) {
+      console.error(err);
+      alert("Failed to generate image. Check console for details.");
+    } finally {
+      setIsLoading(false);
+      setPrompt("");
+    }
   };
 
   return (
@@ -53,7 +64,9 @@ const Home: React.FC = () => {
         {/* Selected Image Preview */}
         {imageUrl && (
           <div className="mt-10 w-full max-w-md">
-            <h2 className="text-2xl font-semibold mb-2">Selected Image Preview</h2>
+            <h2 className="text-2xl font-semibold mb-2">
+              Selected Image Preview
+            </h2>
             <ImageCard
               imageUrl={imageUrl}
               prompt="Selected"
@@ -62,16 +75,16 @@ const Home: React.FC = () => {
           </div>
         )}
 
-        {/* Gallery of Generated Images */}
+        {/* Gallery */}
         {generatedImages.length > 0 && (
           <div className="mt-10 w-full grid gap-6 max-w-4xl">
             <h2 className="text-2xl font-semibold mb-2">Generated Images</h2>
-            {generatedImages.map((img, index) => (
+            {generatedImages.map((img, idx) => (
               <ImageCard
-                key={index}
+                key={idx}
                 imageUrl={img.imageUrl}
                 prompt={img.prompt}
-                action={() => setImageUrl(img.imageUrl)} // clicking sets imageUrl
+                action={() => setImageUrl(img.imageUrl)}
               />
             ))}
           </div>
